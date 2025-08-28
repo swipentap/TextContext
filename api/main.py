@@ -164,14 +164,8 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 		# Prepare training data
 		train_data = []
 		for example in examples:
-			# Create the input prompt
-			prompt = (
-				"You are a text analyzer that extracts organized points from input text.\n"
-				"Rule: Analyze the text and extract key points in an organized, structured format.\n"
-				"Format: Use bullet points or numbered lists to organize the information.\n\n"
-				f"Input: {example.input}\n"
-				"Analysis:"
-			)
+			# Create a simpler input prompt that's easier to learn
+			prompt = f"Analyze this text and extract key points:\n{example.input}\n\nKey points:"
 			
 			if example.length_tag:
 				prompt = f"{example.length_tag} {prompt}"
@@ -312,11 +306,7 @@ async def conclude(request: ConcludeRequest):
 		raise HTTPException(status_code=503, detail="Model not loaded")
 	
 	prompt = (
-		"You are a text analyzer that extracts organized points from input text.\n"
-		"Rule: Analyze the text and extract key points in an organized, structured format.\n"
-		"Format: Use bullet points or numbered lists to organize the information.\n\n"
-		f"Input: {request.input}\n"
-		"Analysis:"
+		f"Analyze this text and extract key points:\n{request.input}\n\nKey points:"
 	)
 	
 	if request.length_tag:
@@ -330,9 +320,9 @@ async def conclude(request: ConcludeRequest):
 	)
 	full_text = _tokenizer.decode(outputs[0], skip_special_tokens=True)
 	
-	# Extract only the analysis part (after "Analysis:")
-	if "Analysis:" in full_text:
-		conclusion = full_text.split("Analysis:")[-1].strip()
+	# Extract only the key points part (after "Key points:")
+	if "Key points:" in full_text:
+		conclusion = full_text.split("Key points:")[-1].strip()
 	else:
 		conclusion = full_text.strip()
 	
