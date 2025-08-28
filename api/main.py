@@ -392,8 +392,8 @@ async def conclude(request: ConcludeRequest):
 	if "Input:" in conclusion:
 		conclusion = conclusion.split("Input:")[0].strip()
 	
-	# If the model just repeated the input, create organized points manually
-	if conclusion == request.input or len(conclusion) < 10:
+	# Only use fallback if the model output is clearly wrong (repeats input exactly)
+	if conclusion == request.input:
 		# Manual point extraction as fallback
 		words = request.input.split()
 		points = []
