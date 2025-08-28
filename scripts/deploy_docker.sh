@@ -13,6 +13,22 @@ IMAGE_NAME="mindmodel:latest"
 PORT="8001"
 DATA_DIR="/opt/mindmodel"
 
+# Read sudo password from stdin if available
+if [ -t 0 ]; then
+    # Interactive mode - prompt for password
+    echo -n "Enter sudo password: "
+    read -s SUDO_PASSWORD
+    echo
+else
+    # Non-interactive mode - read from stdin
+    read SUDO_PASSWORD
+fi
+
+# Function to run sudo commands
+run_sudo() {
+    echo "$SUDO_PASSWORD" | sudo -S "$@"
+}
+
 # Build the Docker image
 echo "🔨 Building Docker image..."
 docker build -t $IMAGE_NAME .
@@ -24,10 +40,10 @@ docker rm $CONTAINER_NAME 2>/dev/null || true
 
 # Create necessary directories
 echo "📁 Creating data directories..."
-sudo mkdir -p $DATA_DIR/data
-sudo mkdir -p $DATA_DIR/models
-sudo mkdir -p $DATA_DIR/runs
-sudo chown -R $USER:$USER $DATA_DIR
+run_sudo mkdir -p $DATA_DIR/data
+run_sudo mkdir -p $DATA_DIR/models
+run_sudo mkdir -p $DATA_DIR/runs
+run_sudo chown -R $USER:$USER $DATA_DIR
 
 # Run the new container
 echo "🚀 Starting new container..."
