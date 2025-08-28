@@ -3,11 +3,14 @@ from __future__ import annotations
 import os
 import json
 import asyncio
+import uuid
 from datetime import datetime
 from typing import List, Optional
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
@@ -294,3 +297,11 @@ async def load_specific_model(model_id: str):
 		return {"status": "loaded", "model_path": MODEL_PATH}
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+
+# Mount static files for web UI
+app.mount("/static", StaticFiles(directory="web"), name="static")
+
+@app.get("/")
+async def serve_web_ui():
+    """Serve the web UI"""
+    return FileResponse("web/index.html")
