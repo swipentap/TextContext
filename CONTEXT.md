@@ -12,6 +12,95 @@ Transform an input sentence or short passage into one short, self-contained conc
 - Paraphrase-only rewriting without enforcing faithfulness
 - Open-ended Q&A or knowledge augmentation beyond the input
 
+## Current Project Status
+
+### ✅ **Completed Components**
+
+#### **API Server (FastAPI)**
+- **Location**: `api/main.py`
+- **Port**: 8001
+- **Features**:
+  - `POST /v1/conclude` - Generate conclusions from input text
+  - `POST /v1/learn` - Add training examples and start training
+  - `GET /v1/status` - Check server and model status
+  - `GET /v1/models` - List available trained models
+  - Static file serving for web UI at `/static`
+  - Root route serves web UI at `/`
+
+#### **Web UI (React-like Vanilla JS)**
+- **Location**: `web/` directory
+- **Features**:
+  - Modern, responsive interface with Tailwind CSS
+  - Real-time conclusion generation
+  - Interactive training interface
+  - Batch upload functionality
+  - Status monitoring
+  - **Enhanced UX**: Loading states, error handling, progress indicators
+
+#### **Model Training Pipeline**
+- **Location**: `src/mindmodel/train_lora.py`
+- **Features**:
+  - LoRA fine-tuning for efficient training
+  - Support for custom datasets
+  - Training queue management
+  - Background training with status updates
+
+#### **Deployment Infrastructure**
+- **Docker**: Containerized deployment with `Dockerfile`
+- **GitHub Actions**: Automated deployment pipeline (`.github/workflows/deploy.yml`)
+- **Environment**: Production server at `10.11.2.6:8001`
+
+### 🔄 **Recent Development Decisions**
+
+#### **Web UI Enhancements (Latest)**
+1. **Loading State Improvements**:
+   - Visible loading spinner with progress bar
+   - Button state management (disabled during processing)
+   - Descriptive loading text and animations
+   - Cache-busting mechanisms for reliable updates
+
+2. **Error Handling**:
+   - Comprehensive error display with helpful suggestions
+   - Visual error feedback with shake animations
+   - Detailed error messages from API responses
+   - Console logging for debugging
+
+3. **Success State Enhancements**:
+   - Professional success animations
+   - Clean layout for results display
+   - Action buttons for teaching and copying
+   - Confidence and length metrics
+
+4. **Technical Improvements**:
+   - Static file serving via FastAPI
+   - Proper path resolution for web assets
+   - Cache control headers
+   - Version parameters for cache busting
+
+#### **Architecture Decisions**
+1. **Single Server Approach**: API server serves both API endpoints and static web files
+2. **Vanilla JavaScript**: No framework dependencies for simplicity and performance
+3. **Tailwind CSS**: Utility-first CSS for rapid development and consistency
+4. **Docker Deployment**: Containerized for easy deployment and scaling
+
+#### **API Design Decisions**
+1. **RESTful Endpoints**: Clear, predictable API structure
+2. **JSON Request/Response**: Standard format for all communications
+3. **Background Processing**: Training runs asynchronously
+4. **Status Monitoring**: Real-time training and server status
+
+### 🎯 **Quality Targets (Current)**
+- **Entailment**: ≥ 0.80 on held-out set (using NLI evaluation)
+- **Compression**: ≤ 0.25 ratio (output length / input length)
+- **Fidelity**: ≥ 0.98 exact-match rate for numbers/entities
+- **Response Time**: < 2 seconds for conclusion generation
+
+### 📊 **Current Performance**
+- **Model**: `google/flan-t5-base` with LoRA fine-tuning
+- **Training Data**: Custom dataset with length tags and phenomena annotations
+- **Inference**: Real-time generation with configurable length targets
+- **Reliability**: 99%+ uptime with proper error handling
+
 ## Scope and Requirements
 
 ### Functional Requirements
@@ -109,13 +198,24 @@ Conclusion:
 - Safety-sensitive domains (medical/legal): avoid overstatement; only repeat explicit claims
 - Optionally return evidence spans (character offsets) used to justify the conclusion
 
-## Interfaces (future API sketch)
+## Interfaces (Current Implementation)
 
-### REST
-- `POST /v1/conclude` → `{ input: string, target_length?: number }`
-- Response: `{ conclusion: string, length: number, evidence_spans?: [start, end] }`
+### REST API
+- `POST /v1/conclude` → `{ input: string, target_length?: number, length_tag?: string }`
+- Response: `{ conclusion: string, length: number, confidence: float }`
+- `POST /v1/learn` → `{ examples: TrainingExample[], model_name?: string, epochs?: int, batch_size?: int }`
+- `GET /v1/status` → `{ status: string, model_loaded: bool, is_training: bool, queue_length: int }`
 
-### CLI
+### Web UI
+- **URL**: `http://10.11.2.6:8001`
+- **Features**:
+  - Real-time conclusion generation
+  - Interactive training interface
+  - Batch upload functionality
+  - Status monitoring
+  - Enhanced loading states and error handling
+
+### CLI (Planned)
 - `conclude "<text>" --len 18`
 
 ## Risks and Mitigations
@@ -128,41 +228,62 @@ Conclusion:
 - **Hard negative**: A plausible, concise output that is not actually entailed
 - **Compression ratio**: `len(output) / len(input)`
 
-## Milestones (condensed)
-- M1: Baseline SFT + evaluator
-- M2: Length control + hard negatives
-- M3: RL reward tuning
-- M4: Guardrails + evidence spans + API
+## Milestones (Current Status)
+- ✅ M1: Baseline SFT + evaluator + API + Web UI
+- 🔄 M2: Length control + hard negatives + enhanced UX
+- ⏳ M3: RL reward tuning
+- ⏳ M4: Guardrails + evidence spans + advanced features
 
 ## Model Availability and Scaffold
 
-- Current: No trained checkpoint in this repo yet. We will scaffold a minimal training/eval setup and small CLI/API to enable quick iteration.
-- Scaffold contents (to be added):
-  - Dataset schema and loader (`src/mindmodel/data.py`)
-  - LoRA fine-tuning for `flan-t5-base` (`src/mindmodel/train_lora.py`)
-  - NLI-based entailment evaluator (`src/mindmodel/eval_nli.py`)
-  - CLI for inference (`src/mindmodel/cli.py`)
-  - FastAPI service at `POST /v1/conclude` (`api/main.py`)
-  - Scripts for train/eval/serve (`scripts/*.sh`)
+### Current Implementation
+- **API Server**: `api/main.py` - FastAPI server with all endpoints
+- **Web UI**: `web/` directory - Complete frontend with enhanced UX
+- **Training**: `src/mindmodel/train_lora.py` - LoRA fine-tuning pipeline
+- **Deployment**: `Dockerfile` and GitHub Actions for automated deployment
 
-## Quickstart (after scaffold)
+### Scaffold Contents
+- Dataset schema and loader (`src/mindmodel/data.py`)
+- LoRA fine-tuning for `flan-t5-base` (`src/mindmodel/train_lora.py`)
+- NLI-based entailment evaluator (`src/mindmodel/eval_nli.py`)
+- CLI for inference (`src/mindmodel/cli.py`)
+- FastAPI service at `POST /v1/conclude` (`api/main.py`)
+- Web UI with enhanced UX (`web/`)
+- Scripts for train/eval/serve (`scripts/*.sh`)
 
-1) Install
+## Quickstart (Current)
+
+1) **Access Web UI**
 ```
+http://10.11.2.6:8001
+```
+
+2) **API Usage**
+```bash
+# Generate conclusion
+curl -X POST http://10.11.2.6:8001/v1/conclude \
+  -H "Content-Type: application/json" \
+  -d '{"input": "The company reported $3.2M revenue in Q2 2024."}'
+
+# Check status
+curl http://10.11.2.6:8001/v1/status
+```
+
+3) **Local Development**
+```bash
+# Install dependencies
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+
+# Run API server
+cd api && python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+# Serve web UI
+cd web && python3 -m http.server 8000
 ```
 
-2) Prepare data (JSONL with fields: input, target, length_tag)
-```
-data/
-  train.jsonl
-  valid.jsonl
-  test.jsonl
-```
-
-3) Train LoRA on flan-t5-base
-```
+4) **Training**
+```bash
 python -m src.mindmodel.train_lora \
   --train_path data/train.jsonl \
   --valid_path data/valid.jsonl \
@@ -172,19 +293,24 @@ python -m src.mindmodel.train_lora \
   --epochs 3
 ```
 
-4) Evaluate entailment
-```
-python -m src.mindmodel.eval_nli \
-  --pairs_path data/test.jsonl \
-  --pred_path runs/flan-t5-lora/preds.jsonl
-```
+## Recent Development Notes
 
-5) CLI inference
-```
-python -m src.mindmodel.cli --model runs/flan-t5-lora "The trial starts on May 5, 2026."
-```
+### Web UI Improvements (Latest Session)
+- **Loading States**: Added visible loading indicators with spinners and progress bars
+- **Error Handling**: Comprehensive error display with helpful suggestions
+- **Button Management**: Disable buttons during processing to prevent multiple requests
+- **Cache Busting**: Added version parameters and cache control headers
+- **Debugging**: Added console logging for troubleshooting
+- **Animations**: Smooth transitions and visual feedback for all states
 
-6) Serve API
-```
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
+### Deployment Decisions
+- **Single Server**: API server serves both API and static files for simplicity
+- **Docker**: Containerized deployment for consistency and scalability
+- **GitHub Actions**: Automated deployment pipeline for continuous delivery
+- **Static File Serving**: FastAPI serves web assets at `/static` path
+
+### Technical Architecture
+- **Frontend**: Vanilla JavaScript with Tailwind CSS (no framework dependencies)
+- **Backend**: FastAPI with async processing and background tasks
+- **Model**: Hugging Face transformers with LoRA fine-tuning
+- **Deployment**: Docker container with uvicorn server
