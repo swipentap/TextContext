@@ -358,19 +358,51 @@ async def conclude(request: ConcludeRequest):
 		words = request.input.split()
 		points = []
 		
-		# Extract key information
-		if "revenue" in request.input.lower():
-			points.append("• Revenue information is mentioned")
+		# Extract key information based on content type
+		input_lower = request.input.lower()
+		
+		# Business/Financial content
+		if any(word in input_lower for word in ["revenue", "profit", "sales", "earnings", "company", "business"]):
+			points.append("• Business/financial information")
+			if "revenue" in input_lower:
+				points.append("• Revenue data mentioned")
+			if "company" in input_lower:
+				points.append("• Company-related information")
+		
+		# Weather content
+		if any(word in input_lower for word in ["weather", "forecast", "rain", "sunny", "temperature", "°c", "°f"]):
+			points.append("• Weather forecast information")
+			if "rain" in input_lower:
+				points.append("• Precipitation expected")
+			if "temperature" in input_lower or "°" in input_lower:
+				points.append("• Temperature data included")
+		
+		# Research/Study content
+		if any(word in input_lower for word in ["study", "research", "found", "participants", "results"]):
+			points.append("• Research/study findings")
+			if "participants" in input_lower:
+				points.append("• Participant data included")
+			if "found" in input_lower:
+				points.append("• Research results presented")
+		
+		# Time-related content
+		if any(word in input_lower for word in ["tomorrow", "today", "yesterday", "q1", "q2", "q3", "q4", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]):
+			points.append("• Time-specific information")
+			if any(q in input_lower for q in ["q1", "q2", "q3", "q4"]):
+				points.append("• Quarterly data referenced")
+		
+		# Numerical data
 		if any(char.isdigit() for char in request.input):
 			points.append("• Contains numerical data")
-		if "company" in request.input.lower():
-			points.append("• Company-related information")
-		if "Q" in request.input and any(char.isdigit() for char in request.input):
-			points.append("• Quarterly data is referenced")
+			if "%" in request.input:
+				points.append("• Percentage data included")
+			if "$" in request.input:
+				points.append("• Financial amounts specified")
 		
-		# Add general points
-		points.append("• Text contains business/financial information")
-		points.append("• Information is time-specific")
+		# If no specific content type detected, add general points
+		if not points:
+			points.append("• Text contains structured information")
+			points.append("• Multiple data points present")
 		
 		conclusion = "\n".join(points)
 	
