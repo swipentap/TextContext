@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_HOST: 10.11.2.6
   RUNNER_USER: jaal
 
 jobs:
