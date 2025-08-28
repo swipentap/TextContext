@@ -84,6 +84,12 @@ class MindModelUI {
             return;
         }
 
+        // Disable the generate button and show loading
+        const generateBtn = document.getElementById('generate-btn');
+        const originalText = generateBtn.innerHTML;
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="fas fa-spinner loading mr-2"></i>Generating...';
+        
         this.showLoading();
         
         try {
@@ -100,15 +106,21 @@ class MindModelUI {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorData = await response.text();
+                throw new Error(`HTTP ${response.status}: ${response.statusText}${errorData ? ` - ${errorData}` : ''}`);
             }
 
             const result = await response.json();
             this.showResult(result);
             this.showToast('Conclusion generated successfully!', 'success');
         } catch (error) {
+            console.error('Generation error:', error);
             this.showError(error.message);
             this.showToast('Failed to generate conclusion', 'error');
+        } finally {
+            // Re-enable the generate button
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = originalText;
         }
     }
 
@@ -116,6 +128,12 @@ class MindModelUI {
         document.getElementById('loading-output').classList.remove('hidden');
         document.getElementById('result-output').classList.add('hidden');
         document.getElementById('error-output').classList.add('hidden');
+        
+        // Add a subtle animation to the loading spinner
+        const spinner = document.querySelector('#loading-output .fa-spinner');
+        if (spinner) {
+            spinner.style.animation = 'spin 1s linear infinite';
+        }
     }
 
     showResult(result) {
@@ -126,6 +144,10 @@ class MindModelUI {
         document.getElementById('conclusion-text').textContent = result.conclusion;
         document.getElementById('conclusion-length').textContent = result.length;
         document.getElementById('conclusion-confidence').textContent = `${(result.confidence * 100).toFixed(1)}%`;
+        
+        // Add a subtle success animation
+        const resultDiv = document.getElementById('result-output');
+        resultDiv.style.animation = 'fadeIn 0.5s ease-in';
     }
 
     showError(message) {
@@ -133,6 +155,10 @@ class MindModelUI {
         document.getElementById('result-output').classList.add('hidden');
         document.getElementById('error-output').classList.remove('hidden');
         document.getElementById('error-text').textContent = message;
+        
+        // Add a subtle error animation
+        const errorDiv = document.getElementById('error-output');
+        errorDiv.style.animation = 'shake 0.5s ease-in-out';
     }
 
     teachFromResult() {
