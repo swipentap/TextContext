@@ -45,6 +45,14 @@
             color: #6B7280;
             font-style: italic;
         }
+        .conclusion-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: inherit;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -147,7 +155,7 @@
                                     <div class="ml-3 flex-1">
                                         <h3 class="font-medium text-green-800 mb-3">Generated Conclusion</h3>
                                         <div class="bg-white border border-green-200 rounded-md p-4 mb-4">
-                                            <p id="conclusion-text" class="text-green-700 text-lg leading-relaxed"></p>
+                                            <pre id="conclusion-text" class="text-green-700 text-lg leading-relaxed whitespace-pre-wrap font-sans conclusion-text"></pre>
                                         </div>
                                         <div class="grid grid-cols-2 gap-4 text-sm mb-4">
                                             <div class="bg-white border border-green-200 p-3 rounded-md">
