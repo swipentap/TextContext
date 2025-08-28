@@ -8,11 +8,11 @@ on:
 env:
   DOCKER_HOST: 10.11.2.6
   RUNNER_USER: jaal
-  SUDO_PASSWORD: ${{ secrets.SUDO_PASSWORD }}
 
 jobs:
   deploy:
     runs-on: self-hosted
+    environment: prod
     
     steps:
     - name: Checkout code
