@@ -164,8 +164,8 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 		# Prepare training data
 		train_data = []
 		for example in examples:
-			# Create a simpler input prompt that's easier to learn
-			prompt = f"Analyze this text and extract key points:\n{example.input}\n\nKey points:"
+			# Create a more explicit prompt for complete structured output
+			prompt = f"Analyze this workflow and extract complete structured points:\n{example.input}\n\nComplete analysis:"
 			
 			if example.length_tag:
 				prompt = f"{example.length_tag} {prompt}"
@@ -306,7 +306,7 @@ async def conclude(request: ConcludeRequest):
 		raise HTTPException(status_code=503, detail="Model not loaded")
 	
 	prompt = (
-		f"Analyze this text and extract key points:\n{request.input}\n\nKey points:"
+		f"Analyze this workflow and extract complete structured points:\n{request.input}\n\nComplete analysis:"
 	)
 	
 	if request.length_tag:
@@ -315,14 +315,14 @@ async def conclude(request: ConcludeRequest):
 	inputs = _tokenizer(prompt, return_tensors="pt")
 	outputs = _model.generate(
 		**inputs, 
-		max_new_tokens=request.target_length or 100,  # Increased for multiple points
+		max_new_tokens=request.target_length or 200,  # Increased for longer outputs
 		do_sample=False
 	)
 	full_text = _tokenizer.decode(outputs[0], skip_special_tokens=True)
 	
-	# Extract only the key points part (after "Key points:")
-	if "Key points:" in full_text:
-		conclusion = full_text.split("Key points:")[-1].strip()
+	# Extract only the complete analysis part (after "Complete analysis:")
+	if "Complete analysis:" in full_text:
+		conclusion = full_text.split("Complete analysis:")[-1].strip()
 	else:
 		conclusion = full_text.strip()
 	
