@@ -1,0 +1,31 @@
+name: Deploy MindModel to Docker Host
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy MindModel
+      run: |
+        chmod +x scripts/deploy_docker.sh
+        ./scripts/deploy_docker.sh
+        
+    - name: Show final status
+      run: |
+        echo "🎉 Deployment completed!"
+        echo ""
+        echo "📋 Service URLs:"
+        echo "  - Main API: http://10.11.2.6:8000"
+        echo "  - Health Check: http://10.11.2.6:8000/health"
+        echo "  - Status: http://10.11.2.6:8000/status"
+        echo ""
+        echo "📋 Container Info:"
+        docker ps | grep mindmodel
