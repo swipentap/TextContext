@@ -26,7 +26,41 @@ fi
 
 # Function to run sudo commands
 run_sudo() {
-    echo "$SUDO_PASSWORD" | sudo -S "$@"
+    if [ -n "$SUDO_PASSWORD" ]; then
+        echo "$SUDO_PASSWORD" | sudo -S "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+# Function to create directories safely
+create_directories() {
+    echo "📁 Creating data directories..."
+    
+    # Try to create directories without sudo first
+    if mkdir -p $DATA_DIR/data $DATA_DIR/models $DATA_DIR/runs 2>/dev/null; then
+        echo "✅ Directories created successfully without sudo"
+        return 0
+    fi
+    
+    # If that fails, try with sudo
+    if [ -n "$SUDO_PASSWORD" ]; then
+        echo "🔐 Creating directories with sudo..."
+        if run_sudo mkdir -p $DATA_DIR/data $DATA_DIR/models $DATA_DIR/runs; then
+            if run_sudo chown -R $USER:$USER $DATA_DIR; then
+                echo "✅ Directories created successfully with sudo"
+                return 0
+            else
+                echo "⚠️  Warning: Could not change ownership of directories"
+            fi
+        else
+            echo "❌ Failed to create directories with sudo"
+            return 1
+        fi
+    else
+        echo "❌ No sudo password provided and cannot create directories without sudo"
+        return 1
+    fi
 }
 
 # Build the Docker image
@@ -39,11 +73,14 @@ docker stop $CONTAINER_NAME 2>/dev/null || true
 docker rm $CONTAINER_NAME 2>/dev/null || true
 
 # Create necessary directories
-echo "📁 Creating data directories..."
-run_sudo mkdir -p $DATA_DIR/data
-run_sudo mkdir -p $DATA_DIR/models
-run_sudo mkdir -p $DATA_DIR/runs
-run_sudo chown -R $USER:$USER $DATA_DIR
+if ! create_directories; then
+    echo "❌ Failed to create directories. Trying alternative approach..."
+    
+    # Try creating in user's home directory
+    DATA_DIR="$HOME/mindmodel"
+    echo "📁 Using alternative data directory: $DATA_DIR"
+    mkdir -p $DATA_DIR/data $DATA_DIR/models $DATA_DIR/runs
+fi
 
 # Run the new container
 echo "🚀 Starting new container..."
@@ -98,6 +135,7 @@ echo "  - Web UI: http://10.11.2.6:$PORT"
 echo "  - API Base: http://10.11.2.6:$PORT"
 echo "  - Health Check: http://10.11.2.6:$PORT/health"
 echo "  - Status: http://10.11.2.6:$PORT/status"
+echo "  - Data Directory: $DATA_DIR"
 echo ""
 echo "📋 Web UI Features:"
 echo "  - Test: Generate conclusions interactively"
