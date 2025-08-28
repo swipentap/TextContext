@@ -1,0 +1,13 @@
+transformers==4.43.3
+accelerate==0.34.2
+torch>=2.2.0
+peft==0.12.0
+datasets==2.20.0
+numpy>=1.24
+scikit-learn>=1.3
+fastapi==0.112.0
+uvicorn==0.30.6
+pydantic==2.8.2
+rich>=13.7
+tyro==0.8.5
+python-dotenv>=1.0.1

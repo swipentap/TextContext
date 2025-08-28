@@ -1,0 +1,2 @@
+{"input": "If approved by regulators, the merger could close in Q4 2025.", "target": "The merger could close in Q4 2025 if regulators approve.", "length_tag": "<LEN_18>", "phenomena_tags": ["conditional", "modality", "dates"]}
+{"input": "The team scored 2 goals in the first half and 1 in the second.", "target": "The team scored 3 goals in the match.", "length_tag": "<LEN_12>", "phenomena_tags": ["numbers", "aggregation"]}

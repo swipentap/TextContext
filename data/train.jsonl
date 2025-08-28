@@ -1,0 +1,6 @@
+{"input": "The company reported revenue of $3.2 million in Q2 2024.", "target": "The company reported $3.2 million in Q2 2024.", "length_tag": "<LEN_16>", "phenomena_tags": ["numbers"]}
+{"input": "If the weather holds, the match will start at 3 pm on Saturday.", "target": "The match will start at 3 pm on Saturday if weather holds.", "length_tag": "<LEN_18>", "phenomena_tags": ["conditional", "time"]}
+{"input": "Preliminary data suggests the drug may reduce blood pressure in adults.", "target": "The drug may reduce blood pressure in adults.", "length_tag": "<LEN_16>", "phenomena_tags": ["modality"]}
+{"input": "The committee did not approve the proposal during the Monday meeting.", "target": "The committee did not approve the proposal.", "length_tag": "<LEN_14>", "phenomena_tags": ["negation"]}
+{"input": "John, a senior engineer at Acme, presented three design options.", "target": "John presented three design options.", "length_tag": "<LEN_14>", "phenomena_tags": ["apposition", "numbers"]}
+{"input": "Shares rose 4% after the CEO said profits would grow next year.", "target": "Shares rose 4% after the CEO forecast profit growth next year.", "length_tag": "<LEN_18>", "phenomena_tags": ["numbers", "reported_speech"]}

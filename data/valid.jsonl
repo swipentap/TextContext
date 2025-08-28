@@ -1,0 +1,2 @@
+{"input": "Researchers found no evidence that caffeine improves memory in teens.", "target": "Researchers found no evidence that caffeine improves teen memory.", "length_tag": "<LEN_18>", "phenomena_tags": ["negation"]}
+{"input": "The launch is scheduled for 07:30 UTC on 12 Aug 2025.", "target": "The launch is scheduled for 07:30 UTC on 12 Aug 2025.", "length_tag": "<LEN_18>", "phenomena_tags": ["dates", "time"]}
