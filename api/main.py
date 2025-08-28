@@ -453,7 +453,7 @@ async def conclude(request: ConcludeRequest):
 		)
 	
 	# List memories
-	elif "what do you remember" in input_text or "list memories" in input_text:
+	elif any(phrase in input_text for phrase in ["what do you remember", "list memories", "what do you remember?"]):
 		conclusion = memory.list_memories()
 		return ConcludeResponse(
 			conclusion=conclusion,
