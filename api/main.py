@@ -24,6 +24,38 @@ _is_training = False
 _training_queue = []
 _model_version = "base"  # Track model version
 
+# Global memory for single user
+USER_MEMORY = {}
+
+class SimpleMemory:
+    def __init__(self):
+        self.memory = {}
+    
+    def remember(self, key, value):
+        """Store a value in memory"""
+        self.memory[key] = value
+        return f"I'll remember that {key} is {value}."
+    
+    def recall(self, key):
+        """Retrieve a value from memory"""
+        return self.memory.get(key)
+    
+    def forget(self, key):
+        """Remove a value from memory"""
+        if key in self.memory:
+            del self.memory[key]
+            return f"I've forgotten {key}."
+        return f"I don't remember {key}."
+    
+    def list_memories(self):
+        """List all stored memories"""
+        if not self.memory:
+            return "I don't remember anything."
+        return "I remember:\n" + "\n".join([f"- {k}: {v}" for k, v in self.memory.items()])
+
+# Global memory instance
+memory = SimpleMemory()
+
 # Data storage
 DATA_DIR = Path("/app/data")
 MODELS_DIR = Path("/app/models")
@@ -301,10 +333,130 @@ async def get_status():
 
 @app.post("/v1/conclude", response_model=ConcludeResponse)
 async def conclude(request: ConcludeRequest):
-	"""Extract organized points from input text."""
+	"""Extract organized points from input text or handle memory operations."""
 	if _model is None or _tokenizer is None:
 		raise HTTPException(status_code=503, detail="Model not loaded")
 	
+	# Handle memory operations first
+	input_text = request.input.lower()
+	
+	# Memory commands
+	if "remember" in input_text:
+		import re
+		
+		# Pattern: "remember [key] is [value]" or "remember [key] of [subject] is [value]"
+		patterns = [
+			r"remember (\w+) is (\w+)",
+			r"remember (\w+) of (\w+) is (\w+)",
+			r"remember (\w+) = (\w+)"
+		]
+		
+		for pattern in patterns:
+			match = re.search(pattern, input_text)
+			if match:
+				if len(match.groups()) == 2:
+					key, value = match.groups()
+				else:
+					key = f"{match.group(2)}_{match.group(1)}"
+					value = match.group(3)
+				
+				conclusion = memory.remember(key, value)
+				return ConcludeResponse(
+					conclusion=conclusion,
+					length=len(conclusion.split()),
+					confidence=0.95,
+					model_version=_model_version,
+				)
+		
+		conclusion = "I didn't understand what to remember. Please use format: 'remember [key] is [value]'"
+		return ConcludeResponse(
+			conclusion=conclusion,
+			length=len(conclusion.split()),
+			confidence=0.95,
+			model_version=_model_version,
+		)
+	
+	# Recall commands
+	elif any(word in input_text for word in ["what is", "tell me", "recall"]):
+		# Extract what to recall
+		if "wife" in input_text and "age" in input_text:
+			age = memory.recall("wife_age")
+			if age:
+				conclusion = f"Your wife's age is {age}."
+			else:
+				conclusion = "I don't remember your wife's age."
+			return ConcludeResponse(
+				conclusion=conclusion,
+				length=len(conclusion.split()),
+				confidence=0.95,
+				model_version=_model_version,
+			)
+		
+		elif "my" in input_text and "age" in input_text:
+			age = memory.recall("my_age")
+			if age:
+				conclusion = f"Your age is {age}."
+			else:
+				conclusion = "I don't remember your age."
+			return ConcludeResponse(
+				conclusion=conclusion,
+				length=len(conclusion.split()),
+				confidence=0.95,
+				model_version=_model_version,
+			)
+		
+		# Generic recall
+		for key in memory.memory.keys():
+			if key in input_text:
+				value = memory.recall(key)
+				conclusion = f"{key} is {value}."
+				return ConcludeResponse(
+					conclusion=conclusion,
+					length=len(conclusion.split()),
+					confidence=0.95,
+					model_version=_model_version,
+				)
+		
+		conclusion = "I don't remember that information."
+		return ConcludeResponse(
+			conclusion=conclusion,
+			length=len(conclusion.split()),
+			confidence=0.95,
+			model_version=_model_version,
+		)
+	
+	# Forget commands
+	elif "forget" in input_text:
+		# Extract what to forget
+		for key in memory.memory.keys():
+			if key in input_text:
+				conclusion = memory.forget(key)
+				return ConcludeResponse(
+					conclusion=conclusion,
+					length=len(conclusion.split()),
+					confidence=0.95,
+					model_version=_model_version,
+				)
+		
+		conclusion = "I don't remember that to forget it."
+		return ConcludeResponse(
+			conclusion=conclusion,
+			length=len(conclusion.split()),
+			confidence=0.95,
+			model_version=_model_version,
+		)
+	
+	# List memories
+	elif "what do you remember" in input_text or "list memories" in input_text:
+		conclusion = memory.list_memories()
+		return ConcludeResponse(
+			conclusion=conclusion,
+			length=len(conclusion.split()),
+			confidence=0.95,
+			model_version=_model_version,
+		)
+	
+	# Normal conclusion generation
 	prompt = (
 		f"Analyze this workflow and extract complete structured points:\n{request.input}\n\nComplete analysis:"
 	)
