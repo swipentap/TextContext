@@ -340,8 +340,14 @@ async def conclude(request: ConcludeRequest):
 	if "Input:" in conclusion:
 		conclusion = conclusion.split("Input:")[0].strip()
 	
+	print(f"DEBUG - Full generated text: '{full_text}'")
+	print(f"DEBUG - Extracted analysis: '{conclusion}'")
+	print(f"DEBUG - Input was: '{request.input}'")
+	print(f"DEBUG - Conclusion matches input: {conclusion == request.input}")
+	
 	# Only use fallback if the model output is clearly wrong (repeats input exactly)
 	if conclusion == request.input:
+		print("DEBUG - Using fallback logic")
 		# Manual point extraction as fallback
 		words = request.input.split()
 		points = []
@@ -393,9 +399,11 @@ async def conclude(request: ConcludeRequest):
 			points.append("• Multiple data points present")
 		
 		conclusion = "\n".join(points)
+		print(f"DEBUG - Fallback result: '{conclusion}'")
+	else:
+		print("DEBUG - Using model's actual output")
 	
-	print(f"DEBUG - Full generated text: '{full_text}'")
-	print(f"DEBUG - Extracted analysis: '{conclusion}'")
+	print(f"DEBUG - Final conclusion: '{conclusion}'")
 	
 	return ConcludeResponse(
 		conclusion=conclusion,
