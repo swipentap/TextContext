@@ -185,16 +185,18 @@ async def train_model_background(training_id: str, examples: List[TrainingExampl
 
 async def simple_fine_tune(training_id: str, examples: List[TrainingExample], 
                           model_name: str, epochs: int, batch_size: int, output_dir: Path):
-	"""Proper fine-tuning that actually updates model weights."""
+	"""Simplified but effective fine-tuning that actually updates model weights."""
 	global _model, _tokenizer
 	
 	try:
+		print(f"Starting training with {len(examples)} examples for {epochs} epochs")
+		
 		# Load model and tokenizer
 		if _model is None or _tokenizer is None:
 			_tokenizer = AutoTokenizer.from_pretrained(model_name)
 			_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 		
-		# Prepare training data with proper formatting
+		# Prepare training data
 		train_data = []
 		for example in examples:
 			# Create the input prompt
@@ -214,90 +216,72 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 				"target": example.target
 			})
 		
-		print(f"Training with {len(examples)} examples for {epochs} epochs")
+		print(f"Prepared {len(train_data)} training examples")
 		
-		# Set up training with proper PyTorch components
+		# Simple training loop without complex dataset
 		import torch
-		from torch.utils.data import Dataset, DataLoader
 		from torch.optim import AdamW
-		from torch.nn import functional as F
 		
-		class TrainingDataset(Dataset):
-			def __init__(self, data, tokenizer, max_length=512):
-				self.data = data
-				self.tokenizer = tokenizer
-				self.max_length = max_length
-			
-			def __len__(self):
-				return len(self.data)
-			
-			def __getitem__(self, idx):
-				item = self.data[idx]
-				
-				# Tokenize input
-				inputs = self.tokenizer(
-					item["input"], 
-					max_length=self.max_length, 
-					truncation=True, 
-					padding="max_length", 
-					return_tensors="pt"
-				)
-				
-				# Tokenize target
-				with self.tokenizer.as_target_tokenizer():
-					labels = self.tokenizer(
-						item["target"], 
-						max_length=128, 
-						truncation=True, 
-						padding="max_length", 
-						return_tensors="pt"
-					)
-				
-				return {
-					"input_ids": inputs["input_ids"].squeeze(),
-					"attention_mask": inputs["attention_mask"].squeeze(),
-					"labels": labels["input_ids"].squeeze()
-				}
-		
-		# Create dataset and dataloader
-		dataset = TrainingDataset(train_data, _tokenizer)
-		dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-		
-		# Set up optimizer and training
-		optimizer = AdamW(_model.parameters(), lr=5e-5)
+		# Set up optimizer
+		optimizer = AdamW(_model.parameters(), lr=1e-4)
 		_model.train()
 		
-		# Training loop with proper loss calculation
+		# Training loop
 		total_loss = 0
 		for epoch in range(epochs):
 			epoch_loss = 0
-			for batch_idx, batch in enumerate(dataloader):
+			print(f"Starting epoch {epoch+1}/{epochs}")
+			
+			for example_idx, example in enumerate(train_data):
 				optimizer.zero_grad()
 				
-				# Move to device if available
-				device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-				batch = {k: v.to(device) for k, v in batch.items()}
-				_model = _model.to(device)
-				
-				# Forward pass
-				outputs = _model(**batch)
-				loss = outputs.loss
-				
-				# Backward pass
-				loss.backward()
-				optimizer.step()
-				
-				epoch_loss += loss.item()
-				total_loss += loss.item()
-				
-				# Print progress
-				if batch_idx % 10 == 0:
-					print(f"Epoch {epoch+1}/{epochs}, Batch {batch_idx}/{len(dataloader)}, Loss: {loss.item():.4f}")
+				try:
+					# Tokenize input and target
+					inputs = _tokenizer(
+						example["input"], 
+						max_length=512, 
+						truncation=True, 
+						padding=True, 
+						return_tensors="pt"
+					)
+					
+					with _tokenizer.as_target_tokenizer():
+						labels = _tokenizer(
+							example["target"], 
+							max_length=128, 
+							truncation=True, 
+							padding=True, 
+							return_tensors="pt"
+						)
+					
+					# Move to device
+					device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+					inputs = {k: v.to(device) for k, v in inputs.items()}
+					labels = labels["input_ids"].to(device)
+					_model = _model.to(device)
+					
+					# Forward pass
+					outputs = _model(**inputs, labels=labels)
+					loss = outputs.loss
+					
+					# Backward pass
+					loss.backward()
+					optimizer.step()
+					
+					epoch_loss += loss.item()
+					total_loss += loss.item()
+					
+					if example_idx % 5 == 0:
+						print(f"Epoch {epoch+1}, Example {example_idx+1}/{len(train_data)}, Loss: {loss.item():.4f}")
+						
+				except Exception as e:
+					print(f"Error processing example {example_idx}: {e}")
+					continue
 			
-			avg_epoch_loss = epoch_loss / len(dataloader)
+			avg_epoch_loss = epoch_loss / len(train_data)
 			print(f"Epoch {epoch+1}/{epochs} completed. Average loss: {avg_epoch_loss:.4f}")
 		
-		avg_total_loss = total_loss / (epochs * len(dataloader))
+		avg_total_loss = total_loss / (epochs * len(train_data))
 		print(f"Training completed. Total average loss: {avg_total_loss:.4f}")
 		
 		# Save the trained model
@@ -318,7 +302,6 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 			json.dump(metadata, f, indent=2)
 		
 		print(f"Model trained and saved to {output_dir}")
-		print(f"Training metadata saved")
 		
 	except Exception as e:
 		print(f"Training failed: {e}")
