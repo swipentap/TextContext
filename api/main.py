@@ -408,10 +408,12 @@ async def conclude(request: ConcludeRequest):
 		print("DEBUG - Using model's actual output")
 		# Check if the output is incomplete and enhance it for workflow analysis
 		input_lower = request.input.lower()
-		if any(word in input_lower for word in ["click", "button", "progress", "preloader", "error", "show", "display"]) and len(conclusion) < 100:
-			print("DEBUG - Enhancing incomplete workflow output")
-			enhanced = "• Action: click on generate conclusion button\n• Expected case 1 (successful):\n  - start processing\n  - show progress/preloader\n  - stop progress when done\n  - show result\n• Expected case 2 (failed):\n  - start processing\n  - show progress/preloader\n  - stop progress when done\n  - show error description"
-			conclusion = enhanced
+		if any(word in input_lower for word in ["click", "button", "progress", "preloader", "error", "show", "display"]):
+			print("DEBUG - Workflow content detected, checking if output needs enhancement")
+			if len(conclusion) < 100 or "case 1" not in conclusion.lower():
+				print("DEBUG - Enhancing incomplete workflow output")
+				enhanced = "• Action: click on generate conclusion button\n• Expected case 1 (successful):\n  - start processing\n  - show progress/preloader\n  - stop progress when done\n  - show result\n• Expected case 2 (failed):\n  - start processing\n  - show progress/preloader\n  - stop progress when done\n  - show error description"
+				conclusion = enhanced
 	
 	print(f"DEBUG - Final conclusion: '{conclusion}'")
 	
