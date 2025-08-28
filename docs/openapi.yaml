@@ -1,0 +1,604 @@
+openapi: 3.0.3
+info:
+  title: MindModel API
+  description: |
+    The MindModel API provides endpoints for generating conclusions from text input and training the model with new examples. 
+    The service operates in an "always-learning" mode, allowing continuous improvement through user feedback.
+  version: 1.0.0
+  contact:
+    name: MindModel Support
+    url: https://github.com/swipentap/TextContext
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://10.11.2.6:8000
+    description: Production server
+
+paths:
+  /v1/conclude:
+    post:
+      summary: Generate conclusion from input text
+      description: Generate a short, faithful conclusion from the provided input text
+      operationId: generateConclusion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConclusionRequest'
+            examples:
+              basic:
+                summary: Basic conclusion request
+                value:
+                  input: "The company reported $3.2M revenue in Q2 2024, representing a 15% increase over Q1."
+                  target_length: 24
+              with_length_tag:
+                summary: Request with length tag
+                value:
+                  input: "The company reported $3.2M revenue in Q2 2024, representing a 15% increase over Q1."
+                  target_length: 24
+                  length_tag: "<LEN_24>"
+      responses:
+        '200':
+          description: Conclusion generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConclusionResponse'
+              examples:
+                success:
+                  summary: Successful conclusion generation
+                  value:
+                    conclusion: "Company revenue increased 15% to $3.2M in Q2."
+                    length: 24
+                    confidence: 0.92
+        '400':
+          description: Bad request - invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/learn:
+    post:
+      summary: Train the model with new examples
+      description: Train the model with provided examples to improve its performance
+      operationId: trainModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingRequest'
+            examples:
+              single_example:
+                summary: Training with a single example
+                value:
+                  examples:
+                    - input: "The company reported $3.2M revenue in Q2 2024, representing a 15% increase over Q1."
+                      target: "Company revenue increased 15% to $3.2M in Q2."
+                      length_tag: "<LEN_24>"
+                      phenomena_tags: ["numbers", "percentage"]
+                  epochs: 1
+                  batch_size: 8
+              multiple_examples:
+                summary: Training with multiple examples
+                value:
+                  examples:
+                    - input: "The company reported $3.2M revenue in Q2 2024, representing a 15% increase over Q1."
+                      target: "Company revenue increased 15% to $3.2M in Q2."
+                      length_tag: "<LEN_24>"
+                      phenomena_tags: ["numbers", "percentage"]
+                    - input: "Sales decreased by 8% in the third quarter due to market conditions."
+                      target: "Sales fell 8% in Q3 due to market conditions."
+                      length_tag: "<LEN_20>"
+                      phenomena_tags: ["numbers", "percentage", "negation"]
+                  epochs: 2
+                  batch_size: 4
+      responses:
+        '200':
+          description: Training started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingResponse'
+              examples:
+                success:
+                  summary: Training started
+                  value:
+                    training_id: "train_1234567890"
+                    status: "started"
+                    message: "Training started successfully"
+        '400':
+          description: Bad request - invalid training data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/training/{training_id}:
+    get:
+      summary: Get training status
+      description: Check the status of a specific training job
+      operationId: getTrainingStatus
+      parameters:
+        - name: training_id
+          in: path
+          required: true
+          description: The ID of the training job
+          schema:
+            type: string
+          example: "train_1234567890"
+      responses:
+        '200':
+          description: Training status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingStatus'
+              examples:
+                completed:
+                  summary: Training completed
+                  value:
+                    training_id: "train_1234567890"
+                    status: "completed"
+                    progress: 100
+                    message: "Training completed successfully"
+                    started_at: "2024-01-15T10:30:00Z"
+                    completed_at: "2024-01-15T10:35:00Z"
+                in_progress:
+                  summary: Training in progress
+                  value:
+                    training_id: "train_1234567890"
+                    status: "training"
+                    progress: 65
+                    message: "Training in progress"
+                    started_at: "2024-01-15T10:30:00Z"
+        '404':
+          description: Training job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/models:
+    get:
+      summary: List available models
+      description: Get a list of all available trained models
+      operationId: listModels
+      responses:
+        '200':
+          description: Models retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelsList'
+              examples:
+                success:
+                  summary: List of models
+                  value:
+                    models:
+                      - id: "model_20240115_103500"
+                        name: "google/flan-t5-base"
+                        created: "2024-01-15T10:35:00Z"
+                        size: "1.1GB"
+                        performance:
+                          accuracy: 0.85
+                          training_examples: 1000
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/models/{model_id}/load:
+    post:
+      summary: Load a specific model
+      description: Load a specific trained model for inference
+      operationId: loadModel
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          description: The ID of the model to load
+          schema:
+            type: string
+          example: "model_20240115_103500"
+      responses:
+        '200':
+          description: Model loaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadModelResponse'
+              examples:
+                success:
+                  summary: Model loaded
+                  value:
+                    model_id: "model_20240115_103500"
+                    status: "loaded"
+                    message: "Model loaded successfully"
+        '404':
+          description: Model not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /status:
+    get:
+      summary: Get system status
+      description: Get the current system status including model loading and training state
+      operationId: getSystemStatus
+      responses:
+        '200':
+          description: System status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+              examples:
+                ready:
+                  summary: System ready
+                  value:
+                    model_loaded: true
+                    is_training: false
+                    queue_length: 0
+                    last_training: "2024-01-15T10:35:00Z"
+                    current_model: "model_20240115_103500"
+                training:
+                  summary: System training
+                  value:
+                    model_loaded: true
+                    is_training: true
+                    queue_length: 5
+                    last_training: "2024-01-15T10:30:00Z"
+                    current_model: "model_20240115_103000"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Health check
+      description: Check if the service is healthy and responding
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: Service healthy
+                  value:
+                    status: "healthy"
+                    timestamp: "2024-01-15T10:30:00Z"
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    TrainingExample:
+      type: object
+      required:
+        - input
+        - target
+      properties:
+        input:
+          type: string
+          description: The input text to generate a conclusion from
+          example: "The company reported $3.2M revenue in Q2 2024, representing a 15% increase over Q1."
+        target:
+          type: string
+          description: The expected conclusion
+          example: "Company revenue increased 15% to $3.2M in Q2."
+        length_tag:
+          type: string
+          description: Optional length tag for the conclusion
+          example: "<LEN_24>"
+        phenomena_tags:
+          type: array
+          items:
+            type: string
+          description: Optional tags describing linguistic phenomena
+          example: ["numbers", "percentage"]
+
+    ConclusionRequest:
+      type: object
+      required:
+        - input
+      properties:
+        input:
+          type: string
+          description: The input text to generate a conclusion from
+          example: "The company reported $3.2M revenue in Q2 2024, representing a 15% increase over Q1."
+        target_length:
+          type: integer
+          description: Target length for the conclusion
+          default: 24
+          minimum: 8
+          maximum: 50
+          example: 24
+        length_tag:
+          type: string
+          description: Optional length tag for the conclusion
+          example: "<LEN_24>"
+
+    ConclusionResponse:
+      type: object
+      required:
+        - conclusion
+        - length
+        - confidence
+      properties:
+        conclusion:
+          type: string
+          description: The generated conclusion
+          example: "Company revenue increased 15% to $3.2M in Q2."
+        length:
+          type: integer
+          description: The actual length of the generated conclusion
+          example: 24
+        confidence:
+          type: number
+          format: float
+          description: Confidence score for the generated conclusion (0.0-1.0)
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.92
+
+    TrainingRequest:
+      type: object
+      required:
+        - examples
+      properties:
+        examples:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrainingExample'
+          description: List of training examples
+          minItems: 1
+        model_name:
+          type: string
+          description: Name of the base model to use for training
+          default: "google/flan-t5-base"
+          example: "google/flan-t5-base"
+        epochs:
+          type: integer
+          description: Number of training epochs
+          default: 1
+          minimum: 1
+          maximum: 10
+          example: 1
+        batch_size:
+          type: integer
+          description: Training batch size
+          default: 8
+          minimum: 1
+          maximum: 32
+          example: 8
+
+    TrainingResponse:
+      type: object
+      required:
+        - training_id
+        - status
+        - message
+      properties:
+        training_id:
+          type: string
+          description: Unique identifier for the training job
+          example: "train_1234567890"
+        status:
+          type: string
+          description: Status of the training job
+          enum: [started, training, completed, failed]
+          example: "started"
+        message:
+          type: string
+          description: Human-readable message about the training status
+          example: "Training started successfully"
+
+    TrainingStatus:
+      type: object
+      required:
+        - training_id
+        - status
+        - message
+      properties:
+        training_id:
+          type: string
+          description: Unique identifier for the training job
+          example: "train_1234567890"
+        status:
+          type: string
+          description: Status of the training job
+          enum: [started, training, completed, failed]
+          example: "completed"
+        progress:
+          type: integer
+          description: Training progress percentage (0-100)
+          minimum: 0
+          maximum: 100
+          example: 100
+        message:
+          type: string
+          description: Human-readable message about the training status
+          example: "Training completed successfully"
+        started_at:
+          type: string
+          format: date-time
+          description: When the training started
+          example: "2024-01-15T10:30:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          description: When the training completed (if finished)
+          example: "2024-01-15T10:35:00Z"
+
+    ModelInfo:
+      type: object
+      required:
+        - id
+        - name
+        - created
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the model
+          example: "model_20240115_103500"
+        name:
+          type: string
+          description: Name of the model
+          example: "google/flan-t5-base"
+        created:
+          type: string
+          format: date-time
+          description: When the model was created
+          example: "2024-01-15T10:35:00Z"
+        size:
+          type: string
+          description: Size of the model file
+          example: "1.1GB"
+        performance:
+          type: object
+          description: Performance metrics for the model
+          properties:
+            accuracy:
+              type: number
+              format: float
+              description: Model accuracy score
+              example: 0.85
+            training_examples:
+              type: integer
+              description: Number of examples used for training
+              example: 1000
+
+    ModelsList:
+      type: object
+      required:
+        - models
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelInfo'
+          description: List of available models
+
+    LoadModelResponse:
+      type: object
+      required:
+        - model_id
+        - status
+        - message
+      properties:
+        model_id:
+          type: string
+          description: ID of the loaded model
+          example: "model_20240115_103500"
+        status:
+          type: string
+          description: Status of the model loading operation
+          enum: [loaded, failed]
+          example: "loaded"
+        message:
+          type: string
+          description: Human-readable message about the loading status
+          example: "Model loaded successfully"
+
+    SystemStatus:
+      type: object
+      required:
+        - model_loaded
+        - is_training
+        - queue_length
+      properties:
+        model_loaded:
+          type: boolean
+          description: Whether a model is currently loaded
+          example: true
+        is_training:
+          type: boolean
+          description: Whether the system is currently training
+          example: false
+        queue_length:
+          type: integer
+          description: Number of examples in the training queue
+          example: 0
+        last_training:
+          type: string
+          format: date-time
+          description: When the last training completed
+          example: "2024-01-15T10:35:00Z"
+        current_model:
+          type: string
+          description: ID of the currently loaded model
+          example: "model_20240115_103500"
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          description: Health status of the service
+          enum: [healthy, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the health check was performed
+          example: "2024-01-15T10:30:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Invalid request format or missing required fields"
+
+tags:
+  - name: Conclusion Generation
+    description: Endpoints for generating conclusions from text
+  - name: Model Training
+    description: Endpoints for training the model with new examples
+  - name: Model Management
+    description: Endpoints for managing trained models
+  - name: System
+    description: System status and health check endpoints
