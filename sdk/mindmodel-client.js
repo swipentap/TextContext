@@ -11,7 +11,7 @@ class MindModelClient {
      * @param {string} baseUrl - The base URL of the MindModel API
      * @param {number} timeout - Request timeout in milliseconds
      */
-    constructor(baseUrl = 'http://10.11.2.6:8000', timeout = 30000) {
+    constructor(baseUrl = 'http://10.11.2.6:8001', timeout = 30000) {
         this.baseUrl = baseUrl.replace(/\/$/, '');
         this.timeout = timeout;
     }
@@ -254,7 +254,7 @@ class MindModelError extends Error {
  * @returns {Promise<string>} The generated conclusion
  * @throws {MindModelError} If the request fails
  */
-async function quickConclude(inputText, baseUrl = 'http://10.11.2.6:8000') {
+async function quickConclude(inputText, baseUrl = 'http://10.11.2.6:8001') {
     const client = new MindModelClient(baseUrl);
     const result = await client.generateConclusion(inputText);
     return result.conclusion;
@@ -269,7 +269,7 @@ async function quickConclude(inputText, baseUrl = 'http://10.11.2.6:8000') {
  * @returns {Promise<Object>} Training status information
  * @throws {MindModelError} If the request fails
  */
-async function batchTrain(examples, baseUrl = 'http://10.11.2.6:8000', waitForCompletion = true) {
+async function batchTrain(examples, baseUrl = 'http://10.11.2.6:8001', waitForCompletion = true) {
     const client = new MindModelClient(baseUrl);
     const result = await client.trainModel(examples);
     

@@ -4,7 +4,7 @@
 
 The MindModel API provides endpoints for generating conclusions from text input and training the model with new examples. The service operates in an "always-learning" mode, allowing continuous improvement through user feedback.
 
-**Base URL**: `http://10.11.2.6:8000`
+**Base URL**: `http://10.11.2.6:8001`
 
 ## Authentication
 

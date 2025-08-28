@@ -19,7 +19,7 @@ class MindModelClient:
     and managing the system status.
     """
     
-    def __init__(self, base_url: str = "http://10.11.2.6:8000", timeout: int = 30):
+    def __init__(self, base_url: str = "http://10.11.2.6:8001", timeout: int = 30):
         """
         Initialize the MindModel client.
         
@@ -294,7 +294,7 @@ class MindModelError(Exception):
 
 # Convenience functions for common operations
 
-def quick_conclude(input_text: str, base_url: str = "http://10.11.2.6:8000") -> str:
+def quick_conclude(input_text: str, base_url: str = "http://10.11.2.6:8001") -> str:
     """
     Quick function to generate a conclusion from text.
     
@@ -315,7 +315,7 @@ def quick_conclude(input_text: str, base_url: str = "http://10.11.2.6:8000") -> 
 
 def batch_train(
     examples: List[Dict], 
-    base_url: str = "http://10.11.2.6:8000",
+    base_url: str = "http://10.11.2.6:8001",
     wait_for_completion: bool = True
 ) -> Dict[str, Union[str, int, datetime]]:
     """

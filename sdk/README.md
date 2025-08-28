@@ -19,7 +19,7 @@ Copy the `mindmodel_client.py` file to your project or install it as a local pac
 from mindmodel_client import MindModelClient, quick_conclude
 
 # Create a client
-client = MindModelClient("http://10.11.2.6:8000")
+client = MindModelClient("http://10.11.2.6:8001")
 
 # Generate a conclusion
 result = client.generate_conclusion(
@@ -96,7 +96,7 @@ Copy the `mindmodel-client.js` file to your project or install it as a local pac
 const { MindModelClient, quickConclude } = require('./mindmodel-client.js');
 
 // Create a client
-const client = new MindModelClient('http://10.11.2.6:8000');
+const client = new MindModelClient('http://10.11.2.6:8001');
 
 // Generate a conclusion
 const result = await client.generateConclusion(
@@ -114,7 +114,7 @@ console.log(conclusion);
 ```html
 <script src="mindmodel-client.js"></script>
 <script>
-    const client = new MindModelClient('http://10.11.2.6:8000');
+    const client = new MindModelClient('http://10.11.2.6:8001');
     
     client.generateConclusion("The company reported $3.2M revenue in Q2 2024.")
         .then(result => {
@@ -187,7 +187,7 @@ try {
 ### MindModelClient
 
 #### Constructor
-- `baseUrl` (string): The base URL of the MindModel API (default: "http://10.11.2.6:8000")
+- `baseUrl` (string): The base URL of the MindModel API (default: "http://10.11.2.6:8001")
 - `timeout` (number): Request timeout in seconds/milliseconds
 
 #### Methods

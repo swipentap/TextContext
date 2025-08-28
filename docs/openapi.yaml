@@ -13,7 +13,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://10.11.2.6:8000
+  - url: http://10.11.2.6:8001
     description: Production server
 
 paths:

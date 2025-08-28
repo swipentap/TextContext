@@ -1,7 +1,7 @@
 // MindModel Web UI Application
 class MindModelUI {
     constructor() {
-        this.apiBase = 'http://10.11.2.6:8000';
+        this.apiBase = 'http://10.11.2.6:8001';
         this.trainingQueue = [];
         this.currentFile = null;
         this.init();
