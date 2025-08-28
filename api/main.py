@@ -340,8 +340,18 @@ async def conclude(request: ConcludeRequest):
 	# Handle memory operations first
 	input_text = request.input.lower()
 	
+	# List memories (check this first to avoid conflict with "remember")
+	if any(phrase in input_text for phrase in ["what do you remember", "list memories", "what do you remember?"]):
+		conclusion = memory.list_memories()
+		return ConcludeResponse(
+			conclusion=conclusion,
+			length=len(conclusion.split()),
+			confidence=0.95,
+			model_version=_model_version,
+		)
+	
 	# Memory commands
-	if "remember" in input_text:
+	elif "remember" in input_text:
 		import re
 		
 		# Pattern: "remember [key] is [value]" or "remember [key] of [subject] is [value]"
@@ -452,15 +462,7 @@ async def conclude(request: ConcludeRequest):
 			model_version=_model_version,
 		)
 	
-	# List memories
-	elif any(phrase in input_text for phrase in ["what do you remember", "list memories", "what do you remember?"]):
-		conclusion = memory.list_memories()
-		return ConcludeResponse(
-			conclusion=conclusion,
-			length=len(conclusion.split()),
-			confidence=0.95,
-			model_version=_model_version,
-		)
+
 	
 	# Normal conclusion generation
 	prompt = (
