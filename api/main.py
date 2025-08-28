@@ -185,7 +185,7 @@ async def train_model_background(training_id: str, examples: List[TrainingExampl
 
 async def simple_fine_tune(training_id: str, examples: List[TrainingExample], 
                           model_name: str, epochs: int, batch_size: int, output_dir: Path):
-	"""Simple fine-tuning fallback when training module is not available."""
+	"""Proper fine-tuning that actually updates model weights."""
 	global _model, _tokenizer
 	
 	try:
@@ -194,14 +194,18 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 			_tokenizer = AutoTokenizer.from_pretrained(model_name)
 			_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 		
-		# Prepare training data
+		# Prepare training data with proper formatting
 		train_data = []
 		for example in examples:
+			# Create the input prompt
 			prompt = (
-				"You are a faithful conclusion generator.\n"
-				"Rule: Output one short, self-contained conclusion entailed by the input. No new facts.\n\n"
-				f"Input: {example.input}\nConclusion:"
+				"You are a text analyzer that extracts organized points from input text.\n"
+				"Rule: Analyze the text and extract key points in an organized, structured format.\n"
+				"Format: Use bullet points or numbered lists to organize the information.\n\n"
+				f"Input: {example.input}\n"
+				"Analysis:"
 			)
+			
 			if example.length_tag:
 				prompt = f"{example.length_tag} {prompt}"
 			
@@ -210,13 +214,15 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 				"target": example.target
 			})
 		
-		print(f"Simple fine-tuning with {len(examples)} examples")
+		print(f"Training with {len(examples)} examples for {epochs} epochs")
 		
-		# Set up training
+		# Set up training with proper PyTorch components
 		import torch
 		from torch.utils.data import Dataset, DataLoader
+		from torch.optim import AdamW
+		from torch.nn import functional as F
 		
-		class SimpleDataset(Dataset):
+		class TrainingDataset(Dataset):
 			def __init__(self, data, tokenizer, max_length=512):
 				self.data = data
 				self.tokenizer = tokenizer
@@ -227,6 +233,8 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 			
 			def __getitem__(self, idx):
 				item = self.data[idx]
+				
+				# Tokenize input
 				inputs = self.tokenizer(
 					item["input"], 
 					max_length=self.max_length, 
@@ -234,14 +242,17 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 					padding="max_length", 
 					return_tensors="pt"
 				)
+				
+				# Tokenize target
 				with self.tokenizer.as_target_tokenizer():
 					labels = self.tokenizer(
 						item["target"], 
-						max_length=64, 
+						max_length=128, 
 						truncation=True, 
 						padding="max_length", 
 						return_tensors="pt"
 					)
+				
 				return {
 					"input_ids": inputs["input_ids"].squeeze(),
 					"attention_mask": inputs["attention_mask"].squeeze(),
@@ -249,41 +260,70 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 				}
 		
 		# Create dataset and dataloader
-		dataset = SimpleDataset(train_data, _tokenizer)
+		dataset = TrainingDataset(train_data, _tokenizer)
 		dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 		
 		# Set up optimizer and training
-		optimizer = torch.optim.AdamW(_model.parameters(), lr=1e-4)
+		optimizer = AdamW(_model.parameters(), lr=5e-5)
 		_model.train()
 		
-		# Training loop
+		# Training loop with proper loss calculation
+		total_loss = 0
 		for epoch in range(epochs):
-			total_loss = 0
-			for batch in dataloader:
+			epoch_loss = 0
+			for batch_idx, batch in enumerate(dataloader):
 				optimizer.zero_grad()
 				
 				# Move to device if available
-				if torch.cuda.is_available():
-					batch = {k: v.cuda() for k, v in batch.items()}
-					_model = _model.cuda()
+				device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+				batch = {k: v.to(device) for k, v in batch.items()}
+				_model = _model.to(device)
 				
+				# Forward pass
 				outputs = _model(**batch)
 				loss = outputs.loss
+				
+				# Backward pass
 				loss.backward()
 				optimizer.step()
 				
+				epoch_loss += loss.item()
 				total_loss += loss.item()
+				
+				# Print progress
+				if batch_idx % 10 == 0:
+					print(f"Epoch {epoch+1}/{epochs}, Batch {batch_idx}/{len(dataloader)}, Loss: {loss.item():.4f}")
 			
-			print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(dataloader):.4f}")
+			avg_epoch_loss = epoch_loss / len(dataloader)
+			print(f"Epoch {epoch+1}/{epochs} completed. Average loss: {avg_epoch_loss:.4f}")
+		
+		avg_total_loss = total_loss / (epochs * len(dataloader))
+		print(f"Training completed. Total average loss: {avg_total_loss:.4f}")
 		
 		# Save the trained model
 		_model.save_pretrained(output_dir)
 		_tokenizer.save_pretrained(output_dir)
 		
+		# Save training metadata
+		metadata = {
+			"training_id": training_id,
+			"examples_processed": len(examples),
+			"epochs": epochs,
+			"final_loss": avg_total_loss,
+			"model_name": model_name,
+			"trained_at": datetime.now().isoformat()
+		}
+		
+		with open(output_dir / "training_metadata.json", "w") as f:
+			json.dump(metadata, f, indent=2)
+		
 		print(f"Model trained and saved to {output_dir}")
+		print(f"Training metadata saved")
 		
 	except Exception as e:
-		print(f"Simple fine-tuning failed: {e}")
+		print(f"Training failed: {e}")
+		import traceback
+		traceback.print_exc()
 		raise
 
 @app.on_event("startup")
@@ -494,6 +534,21 @@ async def load_specific_model(model_id: str):
 		return {"status": "loaded", "model_path": MODEL_PATH}
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+
+@app.post("/v1/test-learning")
+async def test_learning():
+	"""Test if the model is actually learning by comparing outputs before and after training."""
+	test_input = "The company reported $3.2M revenue in Q2 2024."
+	
+	# Get current model output
+	current_output = await conclude(ConcludeRequest(input=test_input))
+	
+	return {
+		"test_input": test_input,
+		"current_output": current_output.conclusion,
+		"model_version": current_output.model_version,
+		"message": "Use this to compare outputs before and after training"
+	}
 
 # Mount static files for web UI
 app.mount("/static", StaticFiles(directory="web"), name="static")
