@@ -384,7 +384,7 @@ async def conclude(request: ConcludeRequest):
 	elif any(word in input_text for word in ["what is", "tell me", "recall"]):
 		# Extract what to recall
 		if "wife" in input_text and "age" in input_text:
-			age = memory.recall("wife_age")
+			age = memory.recall("my_wife_age")
 			if age:
 				conclusion = f"Your wife's age is {age}."
 			else:
@@ -411,9 +411,11 @@ async def conclude(request: ConcludeRequest):
 		
 		# Generic recall
 		for key in memory.memory.keys():
-			if key in input_text:
+			# Check if key words are in the input
+			key_words = key.replace("_", " ").split()
+			if all(word in input_text for word in key_words):
 				value = memory.recall(key)
-				conclusion = f"{key} is {value}."
+				conclusion = f"{key.replace('_', ' ')} is {value}."
 				return ConcludeResponse(
 					conclusion=conclusion,
 					length=len(conclusion.split()),
