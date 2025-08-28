@@ -22,6 +22,7 @@ _tokenizer = None
 _model = None
 _is_training = False
 _training_queue = []
+_model_version = "base"  # Track model version
 
 # Data storage
 DATA_DIR = Path("/app/data")
@@ -43,6 +44,7 @@ class ConcludeResponse(BaseModel):
 	conclusion: str
 	length: int
 	confidence: float
+	model_version: str
 
 class TrainingExample(BaseModel):
 	input: str
@@ -70,11 +72,12 @@ class StatusResponse(BaseModel):
 
 def load_model():
 	"""Load the model and tokenizer."""
-	global _tokenizer, _model
+	global _tokenizer, _model, _model_version
 	try:
 		_tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 		_model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_PATH)
-		print(f"Model loaded successfully from {MODEL_PATH}")
+		_model_version = MODEL_PATH.split("/")[-1] if "/" in MODEL_PATH else "custom"
+		print(f"Model loaded successfully from {MODEL_PATH} (version: {_model_version})")
 		return True
 	except Exception as e:
 		print(f"Error loading model from {MODEL_PATH}: {e}")
@@ -83,6 +86,7 @@ def load_model():
 			print("Loading base model as fallback...")
 			_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
 			_model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+			_model_version = "base-fallback"
 			print("Base model loaded successfully")
 			return True
 		except Exception as e2:
@@ -153,8 +157,9 @@ async def train_model_background(training_id: str, examples: List[TrainingExampl
 			await simple_fine_tune(training_id, examples, model_name, epochs, batch_size, output_dir)
 		
 		# Load the new model
-		global MODEL_PATH
+		global MODEL_PATH, _model_version
 		MODEL_PATH = str(output_dir)
+		_model_version = f"trained-{training_id}"
 		load_model()
 		
 		# Update training status
@@ -205,14 +210,77 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 				"target": example.target
 			})
 		
-		# Simple training loop (this is a placeholder - in production you'd want proper training)
 		print(f"Simple fine-tuning with {len(examples)} examples")
 		
-		# Save the current model as "trained" (in reality, you'd do actual training here)
+		# Set up training
+		import torch
+		from torch.utils.data import Dataset, DataLoader
+		
+		class SimpleDataset(Dataset):
+			def __init__(self, data, tokenizer, max_length=512):
+				self.data = data
+				self.tokenizer = tokenizer
+				self.max_length = max_length
+			
+			def __len__(self):
+				return len(self.data)
+			
+			def __getitem__(self, idx):
+				item = self.data[idx]
+				inputs = self.tokenizer(
+					item["input"], 
+					max_length=self.max_length, 
+					truncation=True, 
+					padding="max_length", 
+					return_tensors="pt"
+				)
+				with self.tokenizer.as_target_tokenizer():
+					labels = self.tokenizer(
+						item["target"], 
+						max_length=64, 
+						truncation=True, 
+						padding="max_length", 
+						return_tensors="pt"
+					)
+				return {
+					"input_ids": inputs["input_ids"].squeeze(),
+					"attention_mask": inputs["attention_mask"].squeeze(),
+					"labels": labels["input_ids"].squeeze()
+				}
+		
+		# Create dataset and dataloader
+		dataset = SimpleDataset(train_data, _tokenizer)
+		dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+		
+		# Set up optimizer and training
+		optimizer = torch.optim.AdamW(_model.parameters(), lr=1e-4)
+		_model.train()
+		
+		# Training loop
+		for epoch in range(epochs):
+			total_loss = 0
+			for batch in dataloader:
+				optimizer.zero_grad()
+				
+				# Move to device if available
+				if torch.cuda.is_available():
+					batch = {k: v.cuda() for k, v in batch.items()}
+					_model = _model.cuda()
+				
+				outputs = _model(**batch)
+				loss = outputs.loss
+				loss.backward()
+				optimizer.step()
+				
+				total_loss += loss.item()
+			
+			print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(dataloader):.4f}")
+		
+		# Save the trained model
 		_model.save_pretrained(output_dir)
 		_tokenizer.save_pretrained(output_dir)
 		
-		print(f"Model saved to {output_dir}")
+		print(f"Model trained and saved to {output_dir}")
 		
 	except Exception as e:
 		print(f"Simple fine-tuning failed: {e}")
@@ -299,6 +367,7 @@ async def conclude(request: ConcludeRequest):
 		conclusion=conclusion,
 		length=len(conclusion.split()),
 		confidence=0.95,  # Placeholder confidence score
+		model_version=_model_version,
 	)
 
 @app.post("/v1/learn", response_model=TrainingResponse)
