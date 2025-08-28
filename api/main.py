@@ -348,7 +348,9 @@ async def conclude(request: ConcludeRequest):
 		patterns = [
 			r"remember (\w+) is (\w+)",
 			r"remember (\w+) of (\w+) is (\w+)",
-			r"remember (\w+) = (\w+)"
+			r"remember (\w+) = (\w+)",
+			r"remember (\w+ \w+) is (\w+)",
+			r"remember (\w+ \w+ \w+) is (\w+)"
 		]
 		
 		for pattern in patterns:
@@ -356,6 +358,8 @@ async def conclude(request: ConcludeRequest):
 			if match:
 				if len(match.groups()) == 2:
 					key, value = match.groups()
+					# Replace spaces with underscores for key
+					key = key.replace(" ", "_")
 				else:
 					key = f"{match.group(2)}_{match.group(1)}"
 					value = match.group(3)
