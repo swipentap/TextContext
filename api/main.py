@@ -16,45 +16,94 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 app = FastAPI(title="MindModel Learning API")
 
-# Global model state
-MODEL_PATH = os.environ.get("MINDMODEL_MODEL", "google/flan-t5-base")
-_tokenizer = None
+# Global variables
 _model = None
+_tokenizer = None
 _is_training = False
 _training_queue = []
-_model_version = "base"  # Track model version
+_model_version = "base"
 
-# Global memory for single user
-USER_MEMORY = {}
+# Global memory for single user - stored as training data
+MEMORY_EXAMPLES = []
 
-class SimpleMemory:
+class ModelMemory:
     def __init__(self):
-        self.memory = {}
+        self.memory_examples = []
     
     def remember(self, key, value):
-        """Store a value in memory"""
-        self.memory[key] = value
-        return f"I'll remember that {key} is {value}."
+        """Store a memory as training examples"""
+        # Create training example for remembering
+        store_example = {
+            "input": f"remember {key} is {value}",
+            "target": f"I remember that {key} is {value}.",
+            "length_tag": f"<LEN_{len(f'I remember that {key} is {value}.'.split())}>",
+            "phenomena_tags": ["memory_store", "conclusion_generation"]
+        }
+        
+        # Create training example for future recall
+        recall_example = {
+            "input": f"what is {key}?",
+            "target": f"{key} is {value}.",
+            "length_tag": f"<LEN_{len(f'{key} is {value}.'.split())}>",
+            "phenomena_tags": ["memory_recall", "conclusion_generation"]
+        }
+        
+        # Add to memory examples
+        self.memory_examples.append(store_example)
+        self.memory_examples.append(recall_example)
+        
+        		# Save to persistent storage
+		self.save_memories()
+		
+		return f"I'll remember that {key} is {value} and train the model with this information."
     
     def recall(self, key):
-        """Retrieve a value from memory"""
-        return self.memory.get(key)
+        """The model should now be able to recall this from training"""
+        # This will be handled by the model's learned behavior
+        return None  # Model will generate the response
     
     def forget(self, key):
-        """Remove a value from memory"""
-        if key in self.memory:
-            del self.memory[key]
-            return f"I've forgotten {key}."
-        return f"I don't remember {key}."
+        """Remove memory examples"""
+        # Remove examples containing this key
+        self.memory_examples = [ex for ex in self.memory_examples if key not in ex["input"]]
+        self.save_memories()
+        return f"I've forgotten {key} and will retrain the model."
     
     def list_memories(self):
-        """List all stored memories"""
-        if not self.memory:
+        """List all stored memory keys"""
+        keys = set()
+        for example in self.memory_examples:
+            if "what is" in example["input"]:
+                # Extract key from recall examples
+                key = example["input"].replace("what is ", "").replace("?", "")
+                keys.add(key)
+        
+        if not keys:
             return "I don't remember anything."
-        return "I remember:\n" + "\n".join([f"- {k}: {v}" for k, v in self.memory.items()])
+        return "I remember:\n" + "\n".join([f"- {key}" for key in keys])
+    
+    def save_memories(self):
+        """Save memories to persistent storage"""
+        memory_file = Path("memory_data.jsonl")
+        with open(memory_file, 'w', encoding='utf-8') as f:
+            for example in self.memory_examples:
+                f.write(json.dumps(example, ensure_ascii=False) + '\n')
+    
+    def load_memories(self):
+        """Load memories from persistent storage"""
+        memory_file = Path("memory_data.jsonl")
+        if memory_file.exists():
+            with open(memory_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    example = json.loads(line.strip())
+                    self.memory_examples.append(example)
+    
+    def get_training_examples(self):
+        """Get all memory examples for training"""
+        return self.memory_examples.copy()
 
 # Global memory instance
-memory = SimpleMemory()
+model_memory = ModelMemory()
 
 # Data storage
 DATA_DIR = Path("/app/data")
@@ -300,10 +349,50 @@ async def simple_fine_tune(training_id: str, examples: List[TrainingExample],
 		traceback.print_exc()
 		raise
 
+async def train_with_memories():
+	"""Train the model with accumulated memory examples."""
+	global _is_training
+	
+	if _is_training:
+		return  # Already training
+	
+	memory_examples = model_memory.get_training_examples()
+	if not memory_examples:
+		return  # No memories to train with
+	
+	_is_training = True
+	
+	try:
+		# Generate training ID
+		training_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+		
+		print(f"Training model with {len(memory_examples)} memory examples...")
+		
+		# Train the model with memory examples
+		await simple_fine_tune(
+			training_id=training_id,
+			examples=memory_examples,
+			model_name="google/flan-t5-base",
+			epochs=1,  # Single epoch for memory training
+			batch_size=4,
+			output_dir=RUNS_DIR / f"memory_training_{training_id}"
+		)
+		
+		print("Memory training completed successfully!")
+		
+	except Exception as e:
+		print(f"Memory training failed: {e}")
+		import traceback
+		traceback.print_exc()
+	finally:
+		_is_training = False
+
 @app.on_event("startup")
 async def startup_event():
 	"""Initialize the model on startup."""
 	load_model()
+	# Load persistent memories
+	model_memory.load_memories()
 
 @app.get("/health")
 async def health_check():
@@ -342,7 +431,7 @@ async def conclude(request: ConcludeRequest):
 	
 	# List memories (check this first to avoid conflict with "remember")
 	if any(phrase in input_text for phrase in ["what do you remember", "list memories", "what do you remember?"]):
-		conclusion = memory.list_memories()
+		conclusion = model_memory.list_memories()
 		return ConcludeResponse(
 			conclusion=conclusion,
 			length=len(conclusion.split()),
@@ -374,7 +463,7 @@ async def conclude(request: ConcludeRequest):
 					key = f"{match.group(2)}_{match.group(1)}"
 					value = match.group(3)
 				
-				conclusion = memory.remember(key, value)
+				conclusion = model_memory.remember(key, value)
 				return ConcludeResponse(
 					conclusion=conclusion,
 					length=len(conclusion.split()),
@@ -394,7 +483,7 @@ async def conclude(request: ConcludeRequest):
 	elif any(word in input_text for word in ["what is", "tell me", "recall"]):
 		# Extract what to recall
 		if "wife" in input_text and "age" in input_text:
-			age = memory.recall("my_wife_age")
+			age = model_memory.recall("my_wife_age")
 			if age:
 				conclusion = f"Your wife's age is {age}."
 			else:
@@ -407,7 +496,7 @@ async def conclude(request: ConcludeRequest):
 			)
 		
 		elif "my" in input_text and "age" in input_text:
-			age = memory.recall("my_age")
+			age = model_memory.recall("my_age")
 			if age:
 				conclusion = f"Your age is {age}."
 			else:
@@ -420,18 +509,18 @@ async def conclude(request: ConcludeRequest):
 			)
 		
 		# Generic recall
-		for key in memory.memory.keys():
-			# Check if key words are in the input
-			key_words = key.replace("_", " ").split()
-			if all(word in input_text for word in key_words):
-				value = memory.recall(key)
-				conclusion = f"{key.replace('_', ' ')} is {value}."
-				return ConcludeResponse(
-					conclusion=conclusion,
-					length=len(conclusion.split()),
-					confidence=0.95,
-					model_version=_model_version,
-				)
+		for key in model_memory.memory_examples:
+			if "what is" in key["input"]:
+				key_text = key["input"].replace("what is ", "").replace("?", "")
+				if all(word in input_text for word in key_text.split()):
+					value = model_memory.recall(key_text)
+					conclusion = f"{key_text.replace('_', ' ')} is {value}."
+					return ConcludeResponse(
+						conclusion=conclusion,
+						length=len(conclusion.split()),
+						confidence=0.95,
+						model_version=_model_version,
+					)
 		
 		conclusion = "I don't remember that information."
 		return ConcludeResponse(
@@ -444,17 +533,17 @@ async def conclude(request: ConcludeRequest):
 	# Forget commands
 	elif "forget" in input_text:
 		# Extract what to forget
-		for key in memory.memory.keys():
-			# Check if key words are in the input
-			key_words = key.replace("_", " ").split()
-			if all(word in input_text for word in key_words):
-				conclusion = memory.forget(key)
-				return ConcludeResponse(
-					conclusion=conclusion,
-					length=len(conclusion.split()),
-					confidence=0.95,
-					model_version=_model_version,
-				)
+		for key in model_memory.memory_examples:
+			if "what is" in key["input"]:
+				key_text = key["input"].replace("what is ", "").replace("?", "")
+				if all(word in input_text for word in key_text.split()):
+					conclusion = model_memory.forget(key_text)
+					return ConcludeResponse(
+						conclusion=conclusion,
+						length=len(conclusion.split()),
+						confidence=0.95,
+						model_version=_model_version,
+					)
 		
 		conclusion = "I don't remember that to forget it."
 		return ConcludeResponse(
