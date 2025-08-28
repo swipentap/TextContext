@@ -114,47 +114,12 @@ async def train_model_background(training_id: str, examples: List[TrainingExampl
 	_is_training = True
 	
 	try:
-		# Save training data
-		train_file = f"train_{training_id}.jsonl"
-		valid_file = f"valid_{training_id}.jsonl"
-		
-		# Split examples 80/20
-		split_idx = int(len(examples) * 0.8)
-		train_examples = examples[:split_idx]
-		valid_examples = examples[split_idx:]
-		
-		save_training_data(train_examples, train_file)
-		save_training_data(valid_examples, valid_file)
-		
-		# Run training
+		# Run training directly with simple fine-tuning
 		output_dir = RUNS_DIR / f"training_{training_id}"
 		output_dir.mkdir(exist_ok=True)
 		
-		# Try to import training module, fallback to simple training if not available
-		try:
-			from src.mindmodel.train_lora import main as train_main
-			import tyro
-			from src.mindmodel.train_lora import Args
-			
-			# Create training args
-			args = Args(
-				train_path=str(DATA_DIR / train_file),
-				valid_path=str(DATA_DIR / valid_file),
-				output_dir=str(output_dir),
-				base_model=model_name,
-				epochs=epochs,
-				batch_size=batch_size,
-				max_target_len=24,
-				lr=2e-4,
-			)
-			
-			# Run training
-			train_main(args)
-			
-		except ImportError as e:
-			print(f"Training module not available, using simple fine-tuning: {e}")
-			# Fallback to simple fine-tuning
-			await simple_fine_tune(training_id, examples, model_name, epochs, batch_size, output_dir)
+		# Use simple fine-tuning directly (skip external module)
+		await simple_fine_tune(training_id, examples, model_name, epochs, batch_size, output_dir)
 		
 		# Load the new model
 		global MODEL_PATH, _model_version
