@@ -75,6 +75,7 @@ class MindModelUI {
     }
 
     async generateConclusion() {
+        console.log('generateConclusion called');
         const inputText = document.getElementById('input-text').value.trim();
         const targetLength = document.getElementById('target-length').value;
         const lengthTag = document.getElementById('length-tag').value.trim();
@@ -84,6 +85,7 @@ class MindModelUI {
             return;
         }
 
+        console.log('Showing loading state...');
         // Disable the generate button and show loading
         const generateBtn = document.getElementById('generate-btn');
         const originalText = generateBtn.innerHTML;
@@ -93,6 +95,7 @@ class MindModelUI {
         this.showLoading();
         
         try {
+            console.log('Making API request...');
             const response = await fetch(`${this.apiBase}/v1/conclude`, {
                 method: 'POST',
                 headers: {
@@ -105,12 +108,14 @@ class MindModelUI {
                 })
             });
 
+            console.log('Response received:', response.status);
             if (!response.ok) {
                 const errorData = await response.text();
                 throw new Error(`HTTP ${response.status}: ${response.statusText}${errorData ? ` - ${errorData}` : ''}`);
             }
 
             const result = await response.json();
+            console.log('Result received:', result);
             this.showResult(result);
             this.showToast('Conclusion generated successfully!', 'success');
         } catch (error) {
@@ -118,6 +123,7 @@ class MindModelUI {
             this.showError(error.message);
             this.showToast('Failed to generate conclusion', 'error');
         } finally {
+            console.log('Re-enabling button...');
             // Re-enable the generate button
             generateBtn.disabled = false;
             generateBtn.innerHTML = originalText;
@@ -125,6 +131,7 @@ class MindModelUI {
     }
 
     showLoading() {
+        console.log('showLoading called');
         document.getElementById('loading-output').classList.remove('hidden');
         document.getElementById('result-output').classList.add('hidden');
         document.getElementById('error-output').classList.add('hidden');
@@ -134,6 +141,7 @@ class MindModelUI {
         if (spinner) {
             spinner.style.animation = 'spin 1s linear infinite';
         }
+        console.log('Loading state shown');
     }
 
     showResult(result) {
