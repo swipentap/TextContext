@@ -445,7 +445,9 @@ async def conclude(request: ConcludeRequest):
 	elif "forget" in input_text:
 		# Extract what to forget
 		for key in memory.memory.keys():
-			if key in input_text:
+			# Check if key words are in the input
+			key_words = key.replace("_", " ").split()
+			if all(word in input_text for word in key_words):
 				conclusion = memory.forget(key)
 				return ConcludeResponse(
 					conclusion=conclusion,
