@@ -52,10 +52,10 @@ class ModelMemory:
         self.memory_examples.append(store_example)
         self.memory_examples.append(recall_example)
         
-        		# Save to persistent storage
-		self.save_memories()
-		
-		return f"I'll remember that {key} is {value} and train the model with this information."
+        # Save to persistent storage
+        self.save_memories()
+        
+        return f"I'll remember that {key} is {value} and train the model with this information."
     
     def recall(self, key):
         """The model should now be able to recall this from training"""
