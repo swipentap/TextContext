@@ -211,11 +211,24 @@ async def conclude(request: ConcludeRequest):
 		max_new_tokens=request.target_length or 24, 
 		do_sample=False
 	)
-	text = _tokenizer.decode(outputs[0], skip_special_tokens=True)
+	full_text = _tokenizer.decode(outputs[0], skip_special_tokens=True)
+	
+	# Extract only the conclusion part (after "Conclusion:")
+	if "Conclusion:" in full_text:
+		conclusion = full_text.split("Conclusion:")[-1].strip()
+	else:
+		conclusion = full_text.strip()
+	
+	# Remove any remaining prompt parts
+	if "Input:" in conclusion:
+		conclusion = conclusion.split("Input:")[0].strip()
+	
+	print(f"DEBUG - Full generated text: '{full_text}'")
+	print(f"DEBUG - Extracted conclusion: '{conclusion}'")
 	
 	return ConcludeResponse(
-		conclusion=text,
-		length=len(text.split()),
+		conclusion=conclusion,
+		length=len(conclusion.split()),
 		confidence=0.95,  # Placeholder confidence score
 	)
 
