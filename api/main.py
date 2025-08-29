@@ -17,6 +17,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 app = FastAPI(title="MindModel Learning API")
 
 # Global variables
+MODEL_PATH = os.environ.get("MINDMODEL_MODEL", "google/flan-t5-base")
 _model = None
 _tokenizer = None
 _is_training = False
