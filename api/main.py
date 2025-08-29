@@ -160,6 +160,27 @@ class StatusResponse(BaseModel):
 def load_model():
 	"""Load the model and tokenizer."""
 	global _tokenizer, _model, _model_version
+	
+	# Try to load the most recent trained model first
+	trained_models = []
+	if RUNS_DIR.exists():
+		for run_dir in RUNS_DIR.iterdir():
+			if run_dir.is_dir() and run_dir.name.startswith("training_"):
+				trained_models.append(run_dir)
+	
+	if trained_models:
+		# Sort by creation time and get the most recent
+		latest_model = max(trained_models, key=lambda x: x.stat().st_mtime)
+		try:
+			_tokenizer = AutoTokenizer.from_pretrained(str(latest_model))
+			_model = AutoModelForSeq2SeqLM.from_pretrained(str(latest_model))
+			_model_version = latest_model.name
+			print(f"Model loaded successfully from {latest_model} (version: {_model_version})")
+			return True
+		except Exception as e:
+			print(f"Error loading trained model from {latest_model}: {e}")
+	
+	# Fallback to base model
 	try:
 		_tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 		_model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_PATH)
