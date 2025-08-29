@@ -85,19 +85,24 @@ class ModelMemory:
     
     def save_memories(self):
         """Save memories to persistent storage"""
-        memory_file = Path("memory_data.jsonl")
+        memory_file = DATA_DIR / "memory_data.jsonl"
+        print(f"Saving {len(self.memory_examples)} memories to {memory_file}")
         with open(memory_file, 'w', encoding='utf-8') as f:
             for example in self.memory_examples:
                 f.write(json.dumps(example, ensure_ascii=False) + '\n')
     
     def load_memories(self):
         """Load memories from persistent storage"""
-        memory_file = Path("memory_data.jsonl")
+        memory_file = DATA_DIR / "memory_data.jsonl"
+        print(f"Loading memories from {memory_file}")
         if memory_file.exists():
             with open(memory_file, 'r', encoding='utf-8') as f:
                 for line in f:
                     example = json.loads(line.strip())
                     self.memory_examples.append(example)
+            print(f"Loaded {len(self.memory_examples)} memories")
+        else:
+            print("No memory file found")
     
     def get_training_examples(self):
         """Get all memory examples for training"""
