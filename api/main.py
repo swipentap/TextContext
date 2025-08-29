@@ -480,56 +480,10 @@ async def conclude(request: ConcludeRequest):
 			model_version=_model_version,
 		)
 	
-	# Recall commands
+	# Recall commands - let the model handle this based on training
 	elif any(word in input_text for word in ["what is", "tell me", "recall"]):
-		# Extract what to recall
-		if "wife" in input_text and "age" in input_text:
-			age = model_memory.recall("my_wife_age")
-			if age:
-				conclusion = f"Your wife's age is {age}."
-			else:
-				conclusion = "I don't remember your wife's age."
-			return ConcludeResponse(
-				conclusion=conclusion,
-				length=len(conclusion.split()),
-				confidence=0.95,
-				model_version=_model_version,
-			)
-		
-		elif "my" in input_text and "age" in input_text:
-			age = model_memory.recall("my_age")
-			if age:
-				conclusion = f"Your age is {age}."
-			else:
-				conclusion = "I don't remember your age."
-			return ConcludeResponse(
-				conclusion=conclusion,
-				length=len(conclusion.split()),
-				confidence=0.95,
-				model_version=_model_version,
-			)
-		
-		# Generic recall
-		for key in model_memory.memory_examples:
-			if "what is" in key["input"]:
-				key_text = key["input"].replace("what is ", "").replace("?", "")
-				if all(word in input_text for word in key_text.split()):
-					value = model_memory.recall(key_text)
-					conclusion = f"{key_text.replace('_', ' ')} is {value}."
-					return ConcludeResponse(
-						conclusion=conclusion,
-						length=len(conclusion.split()),
-						confidence=0.95,
-						model_version=_model_version,
-					)
-		
-		conclusion = "I don't remember that information."
-		return ConcludeResponse(
-			conclusion=conclusion,
-			length=len(conclusion.split()),
-			confidence=0.95,
-			model_version=_model_version,
-		)
+		# Let the model generate the response based on its training
+		pass  # Continue to normal model inference
 	
 	# Forget commands
 	elif "forget" in input_text:
